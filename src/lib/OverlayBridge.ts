@@ -32,5 +32,27 @@ export const OverlayBridge = {
     } else {
       console.log('Mock: stopProtection');
     }
+  },
+  checkNotificationPermission: async (): Promise<boolean> => {
+    if (Platform.OS === 'android' && CallDetectionModule) {
+      return await CallDetectionModule.checkNotificationPermission();
+    }
+    return true;
+  },
+  requestNotificationPermission: async (): Promise<void> => {
+    if (Platform.OS === 'android' && CallDetectionModule) {
+      await CallDetectionModule.requestNotificationPermission();
+    }
+  },
+  checkBatteryOptimizationExemption: async (): Promise<boolean> => {
+    if (Platform.OS === 'android' && CallDetectionModule) {
+      return await CallDetectionModule.checkBatteryOptimizationExemption();
+    }
+    return true;
+  },
+  requestBatteryOptimizationExemption: async (): Promise<void> => {
+    if (Platform.OS === 'android' && CallDetectionModule) {
+      await CallDetectionModule.requestBatteryOptimizationExemption();
+    }
   }
 };
