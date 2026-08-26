@@ -18,18 +18,6 @@ import { Home, Shield, Mic, Clock, Settings as SettingsIcon } from 'lucide-react
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// --- Screens Imported Above ---
-
-// --- Tab Screens ---
-
-const TabScreenPlaceholder = ({ name }) => (
-  <View className="flex-1 bg-[#0A0A1F] items-center justify-center">
-    <Text className="text-[#22D3EE] text-2xl font-bold">{name}</Text>
-  </View>
-);
-
-// Tab placeholders removed or unused
-
 // --- Navigators ---
 
 function MainTabs() {
@@ -38,15 +26,16 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'rgba(10, 10, 31, 0.9)', // Translucent dark match
-          borderTopColor: '#1E1042',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderTopColor: '#E5E7EB',
           position: 'absolute',
           paddingBottom: 5,
           height: 60,
           elevation: 0,
+          borderTopWidth: 1,
         },
-        tabBarActiveTintColor: '#22D3EE', // Cyan
-        tabBarInactiveTintColor: '#6B7280', // Gray
+        tabBarActiveTintColor: '#06B6D4',
+        tabBarInactiveTintColor: '#9CA3AF',
       }}
     >
       <Tab.Screen 

@@ -1,8 +1,10 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { MotiView } from 'moti';
 import { CheckCircle, Loader } from 'lucide-react-native';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { Card } from '../../components/Card';
+import { theme } from '../../constants/theme';
 
 const steps = [
   "Uploading samples...",
@@ -11,7 +13,7 @@ const steps = [
   "Saving to your voice library..."
 ];
 
-export default function ProcessingScreen({ navigation }) {
+export default function ProcessingScreen({ navigation }: any) {
   const [completedSteps, setCompletedSteps] = useState(0);
 
   useEffect(() => {
@@ -32,53 +34,104 @@ export default function ProcessingScreen({ navigation }) {
   }, [navigation]);
 
   return (
-    <View className="flex-1 bg-[#0A0A1F] justify-center px-8">
-      <MotiView
-        from={{ opacity: 0, translateY: -20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'timing', duration: 500 }}
-        className="mb-12 items-center"
-      >
-        <Text className="text-white text-3xl font-bold text-center">Processing Voice</Text>
-        <Text className="text-[#A855F7] mt-2 text-center">Please do not close the app</Text>
-      </MotiView>
+    <ScreenContainer>
+      <View style={styles.container}>
+        <MotiView
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 500 }}
+          style={styles.header}
+        >
+          <Text style={[theme.typography.display, styles.title]}>Processing Voice</Text>
+          <Text style={[theme.typography.caption, styles.subtitle]}>Please do not close the app</Text>
+        </MotiView>
 
-      <View className="bg-[#1E1042] p-6 rounded-2xl border border-white/5">
-        {steps.map((step, index) => {
-          const isCompleted = index < completedSteps;
-          const isActive = index === completedSteps;
-          const isPending = index > completedSteps;
+        <Card style={styles.card}>
+          {steps.map((step, index) => {
+            const isCompleted = index < completedSteps;
+            const isActive = index === completedSteps;
+            const isPending = index > completedSteps;
 
-          return (
-            <MotiView
-              key={index}
-              from={{ opacity: 0, translateX: -20 }}
-              animate={{ opacity: isPending ? 0.4 : 1, translateX: 0 }}
-              transition={{ type: 'timing', duration: 500, delay: index * 100 }}
-              className="flex-row items-center mb-6 last:mb-0"
-            >
-              <View className="w-8 h-8 mr-4 items-center justify-center">
-                {isCompleted ? (
-                  <CheckCircle color="#10B981" size={24} />
-                ) : isActive ? (
-                  <MotiView
-                    from={{ rotate: '0deg' }}
-                    animate={{ rotate: '360deg' }}
-                    transition={{ type: 'timing', duration: 1000, loop: true, repeatReverse: false }}
-                  >
-                    <Loader color="#22D3EE" size={24} />
-                  </MotiView>
-                ) : (
-                  <View className="w-3 h-3 rounded-full bg-gray-600" />
-                )}
-              </View>
-              <Text className={`text-lg font-bold ${isCompleted ? 'text-[#10B981]' : isActive ? 'text-[#22D3EE]' : 'text-gray-500'}`}>
-                {step}
-              </Text>
-            </MotiView>
-          );
-        })}
+            return (
+              <MotiView
+                key={index}
+                from={{ opacity: 0, translateX: -20 }}
+                animate={{ opacity: isPending ? 0.4 : 1, translateX: 0 }}
+                transition={{ type: 'timing', duration: 500, delay: index * 100 }}
+                style={[styles.stepRow, index === steps.length - 1 && styles.lastStepRow]}
+              >
+                <View style={styles.iconContainer}>
+                  {isCompleted ? (
+                    <CheckCircle color={theme.colors.successGreen} size={24} />
+                  ) : isActive ? (
+                    <MotiView
+                      from={{ rotate: '0deg' }}
+                      animate={{ rotate: '360deg' }}
+                      transition={{ type: 'timing', duration: 1000, loop: true, repeatReverse: false }}
+                    >
+                      <Loader color={theme.colors.accentTeal} size={24} />
+                    </MotiView>
+                  ) : (
+                    <View style={styles.pendingDot} />
+                  )}
+                </View>
+                <Text 
+                  style={[
+                    theme.typography.body, 
+                    { fontWeight: '700' },
+                    isCompleted ? { color: theme.colors.successGreen } : isActive ? { color: theme.colors.accentTeal } : { color: theme.colors.textDisabled }
+                  ]}
+                >
+                  {step}
+                </Text>
+              </MotiView>
+            );
+          })}
+        </Card>
       </View>
-    </View>
+    </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xl,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.xxl,
+  },
+  title: {
+    textAlign: 'center',
+  },
+  subtitle: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.accentTeal,
+  },
+  card: {
+    padding: theme.spacing.xl,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xl,
+  },
+  lastStepRow: {
+    marginBottom: 0,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    marginRight: theme.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: theme.colors.surfaceElevated,
+  },
+});

@@ -1,18 +1,24 @@
+// @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, LayoutAnimation, UIManager, Platform, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, LayoutAnimation, UIManager, Platform, RefreshControl, ScrollView } from 'react-native';
 import { MotiView, AnimatePresence } from 'moti';
-import { ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, History as HistoryIcon } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, History as HistoryIcon, PhoneCall } from 'lucide-react-native';
 import { getHistory, DetectionEvent } from '../lib/historyStorage';
+import { ScreenContainer } from '../components/ScreenContainer';
+import { Card } from '../components/Card';
+import { EmptyState } from '../components/EmptyState';
+import { theme } from '../constants/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export default function HistoryScreen({ navigation }) {
+export default function HistoryScreen({ navigation }: any) {
   const [history, setHistory] = useState<DetectionEvent[]>([]);
   const [filter, setFilter] = useState<'All' | 'Flagged' | 'Verified'>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -22,8 +28,16 @@ export default function HistoryScreen({ navigation }) {
   }, [navigation]);
 
   const loadData = async () => {
-    const data = await getHistory();
-    setHistory(data);
+    try {
+      const data = await getHistory();
+      setHistory(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
@@ -41,47 +55,65 @@ export default function HistoryScreen({ navigation }) {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  const computeThreatConfidence = (item: DetectionEvent) => {
+    // Assuming item.confidence is a string like "12.4%"
+    const rawVal = parseFloat(item.confidence);
+    if (isNaN(rawVal)) return item.confidence;
+    // If it's a threat but confidence is low (e.g. 12.4%), it meant "12.4% safe". So threat confidence is 100 - 12.4 = 87.6%
+    if (item.isThreat && rawVal < 50) {
+      return (100 - rawVal).toFixed(1) + '%';
+    }
+    // If it's safe and confidence is high (e.g. 98%), threat confidence is 100 - 98 = 2%
+    if (!item.isThreat && rawVal > 50) {
+      return (100 - rawVal).toFixed(1) + '%';
+    }
+    return item.confidence;
+  };
+
   return (
-    <View className="flex-1 bg-[#0A0A1F]">
-      <View className="px-6 pt-16 pb-4">
-        <Text className="text-white text-3xl font-bold">Detection History</Text>
-        <Text className="text-gray-400 mt-2 mb-6">Review all screened calls</Text>
+    <ScreenContainer 
+      scrollViewProps={{
+        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accentTeal} />
+      }}
+    >
+      <View style={{ marginBottom: theme.spacing.xl }}>
+        <Text style={theme.typography.display}>Detection History</Text>
+        <Text style={[theme.typography.caption, { marginTop: theme.spacing.xs, fontSize: 15, marginBottom: theme.spacing.lg }]}>Review analyzed calls</Text>
         
-        <View className="flex-row gap-2">
+        {/* Segmented Control */}
+        <View style={{ flexDirection: 'row', backgroundColor: theme.colors.surfaceElevated, borderRadius: theme.borderRadius.md, padding: 4 }}>
           {['All', 'Flagged', 'Verified'].map((f) => (
             <TouchableOpacity
               key={f}
               onPress={() => setFilter(f as any)}
-              className={`px-4 py-2 rounded-full border ${filter === f ? 'bg-[#22D3EE] border-[#22D3EE]' : 'bg-[#1E1042] border-white/10'}`}
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: theme.borderRadius.md, backgroundColor: filter === f ? theme.colors.surface : 'transparent' }}
             >
-              <Text className={`font-bold ${filter === f ? 'text-[#0A0A1F]' : 'text-gray-400'}`}>
-                {f === 'All' ? 'All' : f === 'Flagged' ? 'Flagged Only' : 'Verified Only'}
+              <Text style={{ fontWeight: '600', color: filter === f ? theme.colors.accentTeal : theme.colors.textSecondary, fontSize: 14 }}>
+                {f}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22D3EE" />
-        }
-      >
-        {filteredHistory.length === 0 ? (
-          <MotiView 
-            from={{ opacity: 0, scale: 0.9 }} 
-            animate={{ opacity: 1, scale: 1 }} 
-            className="items-center justify-center mt-20"
-          >
-            <View className="bg-[#1E1042] w-24 h-24 rounded-full items-center justify-center mb-6 border border-white/5">
-              <HistoryIcon color="#6B7280" size={48} />
-            </View>
-            <Text className="text-white text-xl font-bold mb-2">No calls screened yet</Text>
-            <Text className="text-gray-400 text-center">Your protected calls will show up here once VoxSentry begins monitoring.</Text>
-          </MotiView>
-        ) : (
-          filteredHistory.map((item, index) => {
+      {isLoading ? (
+        <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+          <Text style={theme.typography.caption}>Loading history...</Text>
+        </View>
+      ) : filteredHistory.length === 0 ? (
+        <MotiView 
+          from={{ opacity: 0, scale: 0.95 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+        >
+          <EmptyState
+            icon={<HistoryIcon color={theme.colors.textDisabled} size={48} />}
+            title="No detections yet"
+            description="Your analyzed calls will appear here once you receive them."
+          />
+        </MotiView>
+      ) : (
+        <View style={{ gap: theme.spacing.md }}>
+          {filteredHistory.map((item, index) => {
             const isExpanded = expandedId === item.id;
             return (
               <MotiView
@@ -89,57 +121,65 @@ export default function HistoryScreen({ navigation }) {
                 from={{ opacity: 0, translateY: 10 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{ type: 'timing', duration: 400, delay: index * 50 }}
-                className="bg-[#1E1042] rounded-2xl p-4 border border-white/5 mb-4 shadow-lg overflow-hidden"
               >
-                <TouchableOpacity onPress={() => toggleExpand(item.id)} activeOpacity={0.8}>
-                  <View className="flex-row justify-between items-start mb-3">
-                    <View className={`px-3 py-1 rounded-full flex-row items-center ${item.isThreat ? 'bg-[#EF4444]/20' : 'bg-[#10B981]/20'}`}>
-                      {item.isThreat ? <ShieldAlert color="#EF4444" size={14} /> : <ShieldCheck color="#10B981" size={14} />}
-                      <Text className={`text-xs font-bold ml-1 ${item.isThreat ? 'text-[#EF4444]' : 'text-[#10B981]'}`}>
-                        {item.verdict}
-                      </Text>
+                <Card style={{ padding: theme.spacing.md, marginBottom: 0 }}>
+                  <TouchableOpacity onPress={() => toggleExpand(item.id)} activeOpacity={0.8}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: theme.spacing.md }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ width: 40, height: 40, borderRadius: theme.borderRadius.full, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.md, backgroundColor: item.isThreat ? `${theme.colors.dangerRed}20` : `${theme.colors.successGreen}20` }}>
+                          <PhoneCall color={item.isThreat ? theme.colors.dangerRed : theme.colors.successGreen} size={20} />
+                        </View>
+                        <View>
+                          <Text style={theme.typography.heading}>{item.context}</Text>
+                          <Text style={[theme.typography.caption, { marginTop: 2 }]}>{item.timestamp}</Text>
+                        </View>
+                      </View>
+                      <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: theme.borderRadius.full, backgroundColor: item.isThreat ? `${theme.colors.dangerRed}20` : `${theme.colors.successGreen}20`, flexDirection: 'row', alignItems: 'center' }}>
+                        {item.isThreat ? <ShieldAlert color={theme.colors.dangerRed} size={14} /> : <ShieldCheck color={theme.colors.successGreen} size={14} />}
+                        <Text style={{ fontSize: 12, fontWeight: '700', marginLeft: 6, color: item.isThreat ? theme.colors.dangerRed : theme.colors.successGreen }}>
+                          {item.verdict}
+                        </Text>
+                      </View>
                     </View>
-                    <Text className="text-gray-400 text-xs">{item.timestamp}</Text>
-                  </View>
 
-                  <View className="flex-row justify-between items-end mb-2">
-                    <View>
-                      <Text className="text-white font-bold text-lg mb-1">{item.context}</Text>
-                      <Text className="text-gray-400 text-sm">Confidence: <Text className={item.isThreat ? 'text-[#EF4444]' : 'text-[#10B981]'}>{item.confidence}</Text></Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <View>
+                        <Text style={[theme.typography.caption, { fontWeight: '600', marginBottom: 2 }]}>Threat Confidence</Text>
+                        <Text style={{ fontWeight: '700', fontSize: 16, color: item.isThreat ? theme.colors.dangerRed : theme.colors.textPrimary }}>
+                          {computeThreatConfidence(item)}
+                        </Text>
+                      </View>
+                      <View style={{ padding: 4 }}>
+                        {isExpanded ? <ChevronUp color={theme.colors.textSecondary} size={20} /> : <ChevronDown color={theme.colors.textSecondary} size={20} />}
+                      </View>
                     </View>
-                    <View className="p-2">
-                      {isExpanded ? <ChevronUp color="#9CA3AF" size={20} /> : <ChevronDown color="#9CA3AF" size={20} />}
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
 
-                <AnimatePresence>
                   {isExpanded && (
                     <MotiView
-                      from={{ height: 0, opacity: 0, marginTop: 0 }}
-                      animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
-                      exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                      transition={{ type: 'timing', duration: 300 }}
-                      className="border-t border-white/10 pt-3"
+                      from={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ type: 'timing', duration: 200 }}
+                      style={{ borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: theme.spacing.md, marginTop: theme.spacing.md }}
                     >
-                      <View className="flex-row justify-between mb-2">
-                        <Text className="text-gray-400 text-xs">Detection Method</Text>
-                        <Text className="text-[#22D3EE] text-xs font-bold">{item.method}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: theme.spacing.sm }}>
+                        <Text style={[theme.typography.caption, { fontWeight: '600' }]}>Detection Method</Text>
+                        <Text style={{ fontWeight: '700', fontSize: 13, color: theme.colors.accentTeal }}>{item.method}</Text>
                       </View>
                       {item.profileChecked && (
-                        <View className="flex-row justify-between">
-                          <Text className="text-gray-400 text-xs">Profile Checked</Text>
-                          <Text className="text-[#A855F7] text-xs font-bold">{item.profileChecked}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={[theme.typography.caption, { fontWeight: '600' }]}>Profile Checked</Text>
+                          <Text style={{ fontWeight: '700', fontSize: 13, color: '#A855F7' }}>{item.profileChecked}</Text>
                         </View>
                       )}
                     </MotiView>
                   )}
-                </AnimatePresence>
+                </Card>
               </MotiView>
             );
-          })
-        )}
-      </ScrollView>
-    </View>
+          })}
+        </View>
+      )}
+    </ScreenContainer>
   );
 }

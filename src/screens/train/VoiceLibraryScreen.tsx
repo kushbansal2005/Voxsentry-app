@@ -1,129 +1,162 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { MotiView } from 'moti';
-import { Mic, UserPlus, PlayCircle, ShieldCheck } from 'lucide-react-native';
+import { UserPlus, Play, Trash2 } from 'lucide-react-native';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { Card } from '../../components/Card';
+import { theme } from '../../constants/theme';
+import { getVoiceProfiles, removeVoiceProfile, VoiceProfile } from '../../lib/profileStorage';
 
-const STORAGE_KEY = 'voxsentry_voice_profiles';
+export default function VoiceLibraryScreen({ navigation, route }: any) {
+  const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-export default function VoiceLibraryScreen({ navigation, route }) {
-  const [profiles, setProfiles] = useState([]);
+  const loadProfiles = async () => {
+    try {
+      const data = await getVoiceProfiles();
+      setProfiles(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    loadProfiles();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadProfiles();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     if (route.params?.newProfileAdded) {
-      const addProfile = async () => {
-        const newProfile = {
-          id: Date.now().toString(),
-          name: `Voice Profile ${profiles.length + 1}`,
-          date: new Date().toLocaleDateString(),
-        };
-        const updated = [...profiles, newProfile];
-        setProfiles(updated);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      };
-      addProfile();
-      // Clear the param so it doesn't trigger again on focus
+      loadProfiles();
       navigation.setParams({ newProfileAdded: false });
     }
   }, [route.params?.newProfileAdded]);
 
-  const loadProfiles = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setProfiles(JSON.parse(stored));
-      } else {
-        // Initial mock profile
-        const initial = [{
-          id: '1',
-          name: 'Primary Voice',
-          date: new Date().toLocaleDateString(),
-        }];
-        setProfiles(initial);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleTestVoice = (profile) => {
+  const handleDeleteProfile = (id: string, name: string) => {
     Alert.alert(
-      "Test Voice",
-      `Testing ${profile.name} with mock detection...`,
+      "Delete Profile",
+      `Are you sure you want to delete ${name}?`,
       [
-        { text: "Simulate Safe Call", onPress: () => Alert.alert("Result", "✅ Verdict: Safe. Match Confidence: 99.8%") },
-        { text: "Simulate Deepfake", onPress: () => Alert.alert("Result", "🚨 Verdict: AI Voice Detected. Match Confidence: 12.4%") },
-        { text: "Cancel", style: "cancel" }
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            await removeVoiceProfile(id);
+            await loadProfiles();
+          }
+        }
       ]
     );
   };
 
-  return (
-    <View className="flex-1 bg-[#0A0A1F]">
-      <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, paddingBottom: 100 }}>
-        
-        <MotiView
-          from={{ opacity: 0, translateY: -20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500 }}
-          className="mb-8"
-        >
-          <Text className="text-white text-3xl font-bold">Voice Library</Text>
-          <Text className="text-gray-400 mt-2">Manage your trained voice embeddings</Text>
-        </MotiView>
+  const handleTestVoice = (profile: VoiceProfile) => {
+    Alert.alert(
+      "Test Voice",
+      `Testing ${profile.name}... (This is a simulation)`,
+      [{ text: "OK", style: "default" }]
+    );
+  };
 
-        <View className="flex-row flex-wrap justify-between">
-          {profiles.map((profile, index) => (
-            <MotiView
-              key={profile.id}
-              from={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'timing', duration: 400, delay: index * 100 }}
-              className="w-[48%] bg-[#1E1042] rounded-2xl p-4 border border-white/5 mb-4 shadow-lg"
-            >
-              <View className="flex-row justify-between items-start mb-3">
-                <View className="bg-[#A855F7]/20 p-2 rounded-full">
-                  <ShieldCheck color="#A855F7" size={24} />
-                </View>
-              </View>
-              <Text className="text-white font-bold mb-1">{profile.name}</Text>
-              <Text className="text-gray-400 text-xs mb-4">Trained: {profile.date}</Text>
-              
-              <TouchableOpacity 
-                className="bg-[#22D3EE]/10 border border-[#22D3EE]/30 py-2 rounded-lg flex-row items-center justify-center"
-                onPress={() => handleTestVoice(profile)}
+  return (
+    <ScreenContainer>
+      <MotiView
+        from={{ opacity: 0, translateY: -20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 500 }}
+        style={{ marginBottom: theme.spacing.xl }}
+      >
+        <Text style={theme.typography.display}>Voice Library</Text>
+        <Text style={[theme.typography.caption, { marginTop: theme.spacing.xs, fontSize: 15 }]}>Manage your trusted voices</Text>
+      </MotiView>
+
+      {isLoading ? (
+        <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+          <Text style={theme.typography.caption}>Loading profiles...</Text>
+        </View>
+      ) : (
+        <View style={{ gap: theme.spacing.md }}>
+          {profiles.map((profile, index) => {
+            const dateStr = profile.trainedAt ? new Date(profile.trainedAt).toLocaleDateString() : 'Unknown';
+            return (
+              <MotiView
+                key={profile.id}
+                from={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', duration: 400, delay: index * 100 }}
               >
-                <PlayCircle color="#22D3EE" size={16} />
-                <Text className="text-[#22D3EE] font-bold text-xs ml-1">Test</Text>
-              </TouchableOpacity>
-            </MotiView>
-          ))}
+                <Card style={{ padding: theme.spacing.md, flexDirection: 'row', alignItems: 'center', borderColor: profile.isPrimary ? theme.colors.accentTeal : theme.colors.border }}>
+                  <TouchableOpacity 
+                    style={{ width: 44, height: 44, borderRadius: theme.borderRadius.full, backgroundColor: `${theme.colors.accentTeal}20`, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.md }}
+                    onPress={() => handleTestVoice(profile)}
+                  >
+                    <Play color={theme.colors.accentTeal} size={20} fill={theme.colors.accentTeal} />
+                  </TouchableOpacity>
+                  
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={theme.typography.heading} numberOfLines={1}>{profile.name}</Text>
+                      {profile.isPrimary && (
+                        <View style={{ backgroundColor: `${theme.colors.accentTeal}15`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: theme.spacing.sm }}>
+                          <Text style={{ color: theme.colors.accentTeal, fontSize: 10, fontWeight: '700' }}>PRIMARY</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[theme.typography.caption, { marginTop: 2 }]}>Trained: {dateStr}</Text>
+                  </View>
+
+                  <TouchableOpacity onPress={() => handleDeleteProfile(profile.id, profile.name)} style={{ padding: theme.spacing.xs }}>
+                    <Trash2 color={theme.colors.textDisabled} size={20} />
+                  </TouchableOpacity>
+                </Card>
+              </MotiView>
+            );
+          })}
 
           <MotiView
-            from={{ opacity: 0, scale: 0.9 }}
+            from={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: 'timing', duration: 400, delay: profiles.length * 100 }}
-            className="w-[48%] mb-4"
           >
             <TouchableOpacity 
-              className="flex-1 border-2 border-dashed border-[#A855F7]/50 rounded-2xl items-center justify-center p-4 bg-[#1E1042]/50 min-h-[140px]"
+              style={{
+                borderWidth: 2,
+                borderStyle: 'dashed',
+                borderColor: theme.colors.border,
+                borderRadius: theme.borderRadius.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: theme.spacing.xl,
+                backgroundColor: 'transparent',
+                marginTop: theme.spacing.md
+              }}
               onPress={() => navigation.navigate('Consent')}
             >
-              <View className="bg-[#A855F7]/20 p-3 rounded-full mb-3">
-                <UserPlus color="#A855F7" size={28} />
+              <View style={{ backgroundColor: `${theme.colors.accentTeal}15`, padding: theme.spacing.sm, borderRadius: theme.borderRadius.full, marginBottom: theme.spacing.sm }}>
+                <UserPlus color={theme.colors.accentTeal} size={24} />
               </View>
-              <Text className="text-white font-bold text-center">Add New Voice</Text>
+              {profiles.length === 0 ? (
+                <>
+                  <Text style={[theme.typography.heading, { marginBottom: theme.spacing.xs }]}>No trained voices</Text>
+                  <Text style={[theme.typography.caption, { textAlign: 'center', paddingHorizontal: theme.spacing.xl, marginBottom: theme.spacing.lg }]}>
+                    Train a trusted voice to compare incoming audio against it.
+                  </Text>
+                  <View style={{ backgroundColor: theme.colors.accentTeal, paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.md, borderRadius: theme.borderRadius.md }}>
+                    <Text style={{ color: '#000000', fontWeight: '700' }}>Train New Voice</Text>
+                  </View>
+                </>
+              ) : (
+                <Text style={{ color: theme.colors.accentTeal, fontWeight: '700', fontSize: 16 }}>Add New Voice</Text>
+              )}
             </TouchableOpacity>
           </MotiView>
         </View>
-
-      </ScrollView>
-    </View>
+      )}
+    </ScreenContainer>
   );
 }

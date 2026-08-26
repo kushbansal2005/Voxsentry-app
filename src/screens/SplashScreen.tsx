@@ -1,9 +1,10 @@
-// @ts-nocheck
 import React, { useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Shield } from 'lucide-react-native';
 import { MotiView } from 'moti';
+import { ScreenContainer } from '../components/ScreenContainer';
+import { theme } from '../constants/theme';
 
 export default function SplashScreen({ navigation }: any) {
   useEffect(() => {
@@ -27,19 +28,48 @@ export default function SplashScreen({ navigation }: any) {
   }, [navigation]);
 
   return (
-    <View className="flex-1 bg-[#0A0A1F] items-center justify-center">
-      <MotiView
-        from={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 1000 }}
-        className="items-center"
-      >
-        <View className="bg-[#1E1042] p-4 rounded-full mb-4 border border-[#22D3EE]/30">
-          <Shield color="#22D3EE" size={48} />
-        </View>
-        <Text className="text-[#22D3EE] text-4xl font-bold tracking-wider">VOXSENTRY</Text>
-        <Text className="text-[#A855F7] mt-2 text-lg tracking-widest">INITIALIZING...</Text>
-      </MotiView>
-    </View>
+    <ScreenContainer>
+      <View style={styles.container}>
+        <MotiView
+          from={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 1000 }}
+          style={styles.content}
+        >
+          <View style={styles.iconContainer}>
+            <Shield color={theme.colors.accentTeal} size={48} />
+          </View>
+          <Text style={[theme.typography.display, styles.title]}>VOXSENTRY</Text>
+          <Text style={[theme.typography.caption, styles.subtitle]}>INITIALIZING...</Text>
+        </MotiView>
+      </View>
+    </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    alignItems: 'center',
+  },
+  iconContainer: {
+    backgroundColor: theme.colors.surfaceElevated,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.full,
+    marginBottom: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: `${theme.colors.accentTeal}30`,
+  },
+  title: {
+    color: theme.colors.accentTeal,
+    letterSpacing: 2,
+  },
+  subtitle: {
+    marginTop: theme.spacing.md,
+    letterSpacing: 4,
+  },
+});

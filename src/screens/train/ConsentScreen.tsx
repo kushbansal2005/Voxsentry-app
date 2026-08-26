@@ -1,73 +1,124 @@
-// @ts-nocheck
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Shield, AlertTriangle } from 'lucide-react-native';
 import { MotiView } from 'moti';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
+import { theme } from '../../constants/theme';
 
-export default function ConsentScreen({ navigation }) {
+export default function ConsentScreen({ navigation }: any) {
   return (
-    <View className="flex-1 bg-[#0A0A1F]">
-      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500 }}
-          className="items-center mt-10 mb-8"
-        >
-          <View className="bg-[#1E1042] p-4 rounded-full mb-4 border border-[#A855F7]/30">
-            <Shield color="#A855F7" size={40} />
-          </View>
-          <Text className="text-white text-3xl font-bold text-center">Data & Privacy Consent</Text>
-        </MotiView>
+    <ScreenContainer scrollViewProps={{ contentContainerStyle: { paddingBottom: 100 } }}>
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 500 }}
+        style={styles.header}
+      >
+        <View style={styles.iconContainer}>
+          <Shield color={theme.colors.accentTeal} size={40} />
+        </View>
+        <Text style={[theme.typography.display, styles.title]}>Data & Privacy Consent</Text>
+      </MotiView>
 
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500, delay: 100 }}
-          className="bg-[#1E1042] p-6 rounded-2xl border border-white/5 mb-6"
-        >
-          <Text className="text-white font-bold text-lg mb-4">How we use your voice</Text>
-          <Text className="text-gray-400 mb-4 leading-6">
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 500, delay: 100 }}
+      >
+        <Card style={styles.card}>
+          <Text style={[theme.typography.heading, { marginBottom: theme.spacing.md }]}>How we use your voice</Text>
+          <Text style={[theme.typography.body, styles.bodyText]}>
             To detect deepfakes, we need a small sample of your real voice. This creates an encrypted mathematical signature (voice embedding).
           </Text>
-          <Text className="text-gray-400 mb-4 leading-6">
+          <Text style={[theme.typography.body, styles.bodyText]}>
             • Your audio recordings never leave this device.{"\n"}
             • Only the mathematical embedding is saved.{"\n"}
             • We cannot recreate your voice from this data.
           </Text>
-        </MotiView>
+        </Card>
+      </MotiView>
 
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500, delay: 200 }}
-          className="bg-[#EF4444]/10 p-6 rounded-2xl border border-[#EF4444]/30 mb-8"
-        >
-          <View className="flex-row items-center mb-3">
-            <AlertTriangle color="#EF4444" size={24} />
-            <Text className="text-[#EF4444] font-bold text-lg ml-2">Important</Text>
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 500, delay: 200 }}
+      >
+        <Card style={styles.alertCard}>
+          <View style={styles.alertHeader}>
+            <AlertTriangle color={theme.colors.dangerRed} size={24} />
+            <Text style={[theme.typography.heading, styles.alertTitle]}>Important</Text>
           </View>
-          <Text className="text-[#EF4444]/80 leading-6">
+          <Text style={[theme.typography.body, styles.alertBody]}>
             Please record your voice in a quiet room for the best accuracy. Background noise can reduce the effectiveness of the AI analysis.
           </Text>
-        </MotiView>
+        </Card>
+      </MotiView>
 
-      </ScrollView>
-
-      <View className="absolute bottom-0 left-0 right-0 p-6 bg-[#0A0A1F]/90 pb-24">
-        <TouchableOpacity
-          className="bg-[#A855F7] p-4 rounded-xl items-center shadow-lg shadow-purple-500/50"
+      <View style={styles.footer}>
+        <Button 
+          title="I Understand & Agree"
           onPress={() => navigation.navigate('Recording')}
-        >
-          <Text className="text-white font-bold text-lg">I Understand & Agree</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="p-4 items-center mt-2"
+          style={styles.primaryButton}
+        />
+        <Button 
+          title="Cancel"
+          variant="ghost"
           onPress={() => navigation.goBack()}
-        >
-          <Text className="text-gray-400 font-bold">Cancel</Text>
-        </TouchableOpacity>
+        />
       </View>
-    </View>
+    </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    alignItems: 'center',
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.xxl,
+  },
+  iconContainer: {
+    backgroundColor: `${theme.colors.accentTeal}20`,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.full,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: `${theme.colors.accentTeal}50`,
+  },
+  title: {
+    textAlign: 'center',
+  },
+  card: {
+    marginBottom: theme.spacing.lg,
+  },
+  bodyText: {
+    marginBottom: theme.spacing.md,
+    lineHeight: 24,
+  },
+  alertCard: {
+    backgroundColor: `${theme.colors.dangerRed}10`,
+    borderColor: `${theme.colors.dangerRed}30`,
+    borderWidth: 1,
+    marginBottom: theme.spacing.xxl,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  alertTitle: {
+    color: theme.colors.dangerRed,
+    marginLeft: theme.spacing.sm,
+  },
+  alertBody: {
+    color: `${theme.colors.dangerRed}cc`,
+    lineHeight: 24,
+  },
+  footer: {
+    paddingVertical: theme.spacing.xl,
+  },
+  primaryButton: {
+    marginBottom: theme.spacing.md,
+  },
+});

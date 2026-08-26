@@ -1,19 +1,27 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MotiView } from 'moti';
-import { User, Bell, Volume2, Cloud, Smartphone, LogOut, ChevronRight, Info } from 'lucide-react-native';
+import { Shield, Bell, Lock, CircleHelp as HelpCircle, LogOut, ChevronRight, User, Volume2, Smartphone, Cloud, Info } from 'lucide-react-native';
+import { ScreenContainer } from '../components/ScreenContainer';
+import { Card } from '../components/Card';
+import { theme } from '../constants/theme';
+import { useProtection } from '../context/ProtectionContext';
 
 const SETTINGS_KEY = 'voxsentry_settings';
 
 export default function SettingsScreen({ navigation }: any) {
+  const { isProtectionActive, toggleProtection } = useProtection();
   const [pushEnabled, setPushEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [processingMode, setProcessingMode] = useState<'device' | 'cloud'>('device');
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     loadSettings();
+    loadUserData();
   }, []);
 
   const loadSettings = async () => {
@@ -27,6 +35,13 @@ export default function SettingsScreen({ navigation }: any) {
     } catch (e) {
       console.error('Failed to load settings', e);
     }
+  };
+
+  const loadUserData = async () => {
+    const name = await AsyncStorage.getItem('user_name');
+    const email = await AsyncStorage.getItem('user_email');
+    setUserName(name || 'Guest User');
+    setUserEmail(email || 'Not provided');
   };
 
   const saveSettings = async (newSettings: any) => {
@@ -58,10 +73,9 @@ export default function SettingsScreen({ navigation }: any) {
           text: "Log Out", 
           style: "destructive",
           onPress: async () => {
-            // Clear session token but keep settings/history as a choice
             await AsyncStorage.removeItem('user_session');
-            // Navigate back to Login. Because we are inside MainTabs nested in the Root Stack,
-            // we use navigation.replace or navigation.navigate up to the Root Stack.
+            await AsyncStorage.removeItem('user_name');
+            await AsyncStorage.removeItem('user_email');
             navigation.getParent()?.replace('Login') || navigation.replace('Login');
           }
         }
@@ -76,149 +90,200 @@ export default function SettingsScreen({ navigation }: any) {
     );
   };
 
+  const SettingRow = ({ icon: Icon, title, subtitle, rightElement, onPress, isDestructive = false }: any) => (
+    <TouchableOpacity 
+      style={styles.settingRow}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <View style={[styles.iconContainer, isDestructive && { backgroundColor: `${theme.colors.dangerRed}15` }]}>
+        <Icon color={isDestructive ? theme.colors.dangerRed : theme.colors.accentTeal} size={20} />
+      </View>
+      <View style={styles.settingContent}>
+        <Text style={[theme.typography.body, isDestructive && { color: theme.colors.dangerRed, fontWeight: '700' }]}>{title}</Text>
+        {subtitle && <Text style={[theme.typography.caption, { marginTop: 2 }]}>{subtitle}</Text>}
+      </View>
+      {rightElement || (onPress && <ChevronRight color={theme.colors.textSecondary} size={20} />)}
+    </TouchableOpacity>
+  );
+
   return (
-    <View className="flex-1 bg-[#0A0A1F]">
-      <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, paddingBottom: 100 }}>
+    <ScreenContainer>
+      <MotiView
+        from={{ opacity: 0, translateY: -20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 500 }}
+        style={styles.header}
+      >
+        <Text style={theme.typography.display}>Settings</Text>
+      </MotiView>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Profile Section */}
+        <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', duration: 400, delay: 100 }}>
+          <Card style={styles.profileCard}>
+            <View style={styles.profileIcon}>
+              <User color={theme.colors.accentTeal} size={32} />
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={theme.typography.heading}>{userName}</Text>
+              <Text style={theme.typography.caption}>{userEmail}</Text>
+            </View>
+            <TouchableOpacity style={styles.editButton}>
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </Card>
+        </MotiView>
+
+        {/* Protection & Privacy */}
+        <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', duration: 400, delay: 200 }}>
+          <Text style={[theme.typography.caption, styles.sectionTitle]}>PROTECTION & PRIVACY</Text>
+          <Card style={styles.settingsCard}>
+            <SettingRow 
+              icon={Shield} 
+              title="Real-time Protection" 
+              subtitle={isProtectionActive ? "Active" : "Inactive"}
+              rightElement={
+                <Switch 
+                  value={isProtectionActive}
+                  onValueChange={toggleProtection}
+                  trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.accentTeal }}
+                  thumbColor="#ffffff"
+                />
+              }
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+              icon={Lock} 
+              title="Privacy Policy" 
+              onPress={showPrivacyModal}
+            />
+          </Card>
+        </MotiView>
+
+        {/* Preferences */}
+        <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', duration: 400, delay: 300 }}>
+          <Text style={[theme.typography.caption, styles.sectionTitle]}>PREFERENCES</Text>
+          <Card style={styles.settingsCard}>
+            <SettingRow 
+              icon={Bell} 
+              title="Push Notifications" 
+              subtitle="Alerts for detected threats"
+              rightElement={
+                <Switch 
+                  value={pushEnabled}
+                  onValueChange={handleTogglePush}
+                  trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.accentTeal }}
+                  thumbColor="#ffffff"
+                />
+              }
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+              icon={Volume2} 
+              title="Sound Alerts" 
+              rightElement={
+                <Switch 
+                  value={soundEnabled}
+                  onValueChange={handleToggleSound}
+                  trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.accentTeal }}
+                  thumbColor="#ffffff"
+                />
+              }
+            />
+          </Card>
+        </MotiView>
+
+        {/* Support & Account */}
+        <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', duration: 400, delay: 400 }}>
+          <Text style={[theme.typography.caption, styles.sectionTitle]}>SUPPORT & ACCOUNT</Text>
+          <Card style={styles.settingsCard}>
+            <SettingRow 
+              icon={HelpCircle} 
+              title="Help & Support" 
+              onPress={() => {}}
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+              icon={LogOut} 
+              title="Log Out" 
+              onPress={handleLogout}
+              isDestructive={true}
+            />
+          </Card>
+        </MotiView>
         
-        <MotiView
-          from={{ opacity: 0, translateY: -20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500 }}
-          className="mb-8"
-        >
-          <Text className="text-white text-3xl font-bold">Settings</Text>
-        </MotiView>
-
-        {/* Account Section */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 400, delay: 100 }}
-          className="bg-[#1E1042] rounded-2xl p-6 border border-white/5 mb-8 flex-row items-center justify-between"
-        >
-          <View className="flex-row items-center flex-1">
-            <View className="w-16 h-16 bg-[#22D3EE]/20 rounded-full items-center justify-center border border-[#22D3EE]/30">
-              <User color="#22D3EE" size={32} />
-            </View>
-            <View className="ml-4 flex-1">
-              <Text className="text-white text-xl font-bold">Alex Doe</Text>
-              <Text className="text-gray-400 text-sm">alex@example.com</Text>
-            </View>
-          </View>
-          <TouchableOpacity className="bg-white/5 p-2 rounded-xl">
-            <Text className="text-[#22D3EE] font-bold text-xs">Edit</Text>
-          </TouchableOpacity>
-        </MotiView>
-
-        {/* Notification Preferences */}
-        <Text className="text-white font-bold text-lg mb-4">Notifications</Text>
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 200 }}
-          className="bg-[#1E1042] rounded-2xl p-4 border border-white/5 mb-8"
-        >
-          <View className="flex-row items-center justify-between py-3 border-b border-white/5">
-            <View className="flex-row items-center">
-              <Bell color="#9CA3AF" size={20} />
-              <Text className="text-white ml-3 text-base">Push Notifications</Text>
-            </View>
-            <Switch 
-              value={pushEnabled} 
-              onValueChange={handleTogglePush}
-              trackColor={{ false: '#4B5563', true: '#22D3EE' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          <View className="flex-row items-center justify-between py-3">
-            <View className="flex-row items-center">
-              <Volume2 color="#9CA3AF" size={20} />
-              <Text className="text-white ml-3 text-base">Sound Alerts</Text>
-            </View>
-            <Switch 
-              value={soundEnabled} 
-              onValueChange={handleToggleSound}
-              trackColor={{ false: '#4B5563', true: '#22D3EE' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </MotiView>
-
-        {/* Data & Privacy */}
-        <Text className="text-white font-bold text-lg mb-4">Data & Privacy</Text>
-        <View className="flex-row justify-between mb-8">
-          <MotiView
-            from={{ opacity: 0, translateX: -20 }}
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ type: 'timing', duration: 400, delay: 300 }}
-            className="w-[48%]"
-          >
-            <TouchableOpacity 
-              className={`rounded-2xl p-4 border ${processingMode === 'device' ? 'bg-[#10B981]/10 border-[#10B981]/50' : 'bg-[#1E1042] border-white/5'}`}
-              onPress={() => setProcessingMode('device')}
-            >
-              <Smartphone color={processingMode === 'device' ? '#10B981' : '#6B7280'} size={24} className="mb-3" />
-              <Text className={`font-bold ${processingMode === 'device' ? 'text-white' : 'text-gray-400'}`}>On-Device</Text>
-              <Text className="text-gray-500 text-xs mt-1">Maximum privacy</Text>
-            </TouchableOpacity>
-          </MotiView>
-
-          <MotiView
-            from={{ opacity: 0, translateX: 20 }}
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ type: 'timing', duration: 400, delay: 300 }}
-            className="w-[48%]"
-          >
-            <TouchableOpacity 
-              className="bg-[#1E1042] rounded-2xl p-4 border border-white/5 opacity-50"
-              disabled
-            >
-              <Cloud color="#6B7280" size={24} className="mb-3" />
-              <Text className="text-gray-400 font-bold">Cloud</Text>
-              <View className="bg-[#A855F7]/20 self-start px-2 py-0.5 rounded-full mt-1">
-                <Text className="text-[#A855F7] text-[10px] font-bold">Coming Soon</Text>
-              </View>
-            </TouchableOpacity>
-          </MotiView>
-        </View>
-
-        {/* App Info */}
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 400 }}
-          className="bg-[#1E1042] rounded-2xl p-2 border border-white/5 mb-8"
-        >
-          <TouchableOpacity 
-            className="flex-row items-center justify-between p-4"
-            onPress={showPrivacyModal}
-          >
-            <View className="flex-row items-center">
-              <Info color="#22D3EE" size={20} />
-              <Text className="text-white ml-3 text-base">Privacy & Compliance</Text>
-            </View>
-            <ChevronRight color="#6B7280" size={20} />
-          </TouchableOpacity>
-        </MotiView>
-
-        <Text className="text-gray-500 text-center mb-8">Version 1.0.0</Text>
-
-        {/* Log Out */}
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 500 }}
-        >
-          <TouchableOpacity
-            className="bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-xl py-4 flex-row justify-center items-center"
-            onPress={handleLogout}
-          >
-            <LogOut color="#EF4444" size={20} />
-            <Text className="text-[#EF4444] font-bold text-lg ml-2">Log Out</Text>
-          </TouchableOpacity>
-        </MotiView>
-
+        <View style={styles.bottomSpacer} />
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    marginBottom: theme.spacing.xl,
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
+  },
+  profileIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: `${theme.colors.accentTeal}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.md,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  editButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderRadius: theme.borderRadius.full,
+  },
+  editButtonText: {
+    color: theme.colors.accentTeal,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  sectionTitle: {
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    letterSpacing: 1,
+  },
+  settingsCard: {
+    padding: 0,
+    marginBottom: theme.spacing.xl,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${theme.colors.accentTeal}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.md,
+  },
+  settingContent: {
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginLeft: 68,
+  },
+  bottomSpacer: {
+    height: 40,
+  }
+});

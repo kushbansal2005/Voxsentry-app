@@ -1,107 +1,138 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MotiView } from 'moti';
 import { Shield } from 'lucide-react-native';
+import { ScreenContainer } from '../components/ScreenContainer';
+import { Input } from '../components/Input';
+import { Button } from '../components/Button';
+import { theme } from '../constants/theme';
 
 export default function SignupScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
-  const [isNameFocused, setIsNameFocused] = useState(false);
-  const [isEmailFocused, setIsEmailFocused] = useState(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSignup = async () => {
-    if (name && email && password) {
-      await AsyncStorage.setItem('user_session', 'mock_token_123');
-      navigation.replace('MainTabs');
+    if (!name || !email || !password) {
+      setError('Please fill in all fields.');
+      return;
     }
+    setError('');
+    setIsLoading(true);
+
+    setTimeout(async () => {
+      await AsyncStorage.setItem('user_session', 'mock_token_123');
+      await AsyncStorage.setItem('user_name', name);
+      await AsyncStorage.setItem('user_email', email);
+      setIsLoading(false);
+      navigation.replace('MainTabs');
+    }, 1500);
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-[#0A0A1F]"
-    >
-      <View className="flex-1 justify-center px-6">
+    <ScreenContainer scrollViewProps={{ contentContainerStyle: { flexGrow: 1, justifyContent: 'center' } }}>
+      <View style={styles.container}>
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'timing', duration: 800 }}
-          className="items-center mb-10"
+          style={styles.header}
         >
-          <View className="bg-[#1E1042] p-4 rounded-full mb-4 border border-[#A855F7]/30">
-            <Shield color="#A855F7" size={40} />
+          <View style={styles.iconContainer}>
+            <Shield color={theme.colors.accentTeal} size={48} />
           </View>
-          <Text className="text-white text-3xl font-bold">Create Account</Text>
-          <Text className="text-[#22D3EE] mt-2">Join Voxsentry to secure your identity</Text>
+          <Text style={[theme.typography.display, { marginBottom: theme.spacing.sm }]}>Create Account</Text>
+          <Text style={theme.typography.caption}>Join VoxSentry to secure your identity</Text>
         </MotiView>
 
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'timing', duration: 800, delay: 200 }}
+          style={styles.form}
         >
-          <View className="mb-4">
-            <Text className="text-gray-400 mb-2 ml-1">Full Name</Text>
-            <TextInput
-              className={`bg-[#1E1042] text-white px-4 py-4 rounded-xl border ${isNameFocused ? 'border-[#A855F7]' : 'border-transparent'}`}
-              placeholder="Enter your name"
-              placeholderTextColor="#6B7280"
-              value={name}
-              onChangeText={setName}
-              onFocus={() => setIsNameFocused(true)}
-              onBlur={() => setIsNameFocused(false)}
-            />
-          </View>
+          <Input
+            label="Full Name"
+            placeholder="Enter your name"
+            value={name}
+            onChangeText={setName}
+            error={error && !name ? 'Name is required' : undefined}
+          />
+          <Input
+            label="Email"
+            placeholder="Enter your email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            error={error && !email ? 'Email is required' : undefined}
+          />
+          <Input
+            label="Password"
+            placeholder="Create a password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            error={error && !password ? 'Password is required' : undefined}
+            style={{ marginBottom: theme.spacing.md }}
+          />
 
-          <View className="mb-4">
-            <Text className="text-gray-400 mb-2 ml-1">Email</Text>
-            <TextInput
-              className={`bg-[#1E1042] text-white px-4 py-4 rounded-xl border ${isEmailFocused ? 'border-[#A855F7]' : 'border-transparent'}`}
-              placeholder="Enter your email"
-              placeholderTextColor="#6B7280"
-              value={email}
-              onChangeText={setEmail}
-              onFocus={() => setIsEmailFocused(true)}
-              onBlur={() => setIsEmailFocused(false)}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
+          {error && name && email && password ? (
+            <Text style={[theme.typography.caption, { color: theme.colors.dangerRed, marginBottom: theme.spacing.md }]}>
+              {error}
+            </Text>
+          ) : null}
 
-          <View className="mb-8">
-            <Text className="text-gray-400 mb-2 ml-1">Password</Text>
-            <TextInput
-              className={`bg-[#1E1042] text-white px-4 py-4 rounded-xl border ${isPasswordFocused ? 'border-[#A855F7]' : 'border-transparent'}`}
-              placeholder="Create a password"
-              placeholderTextColor="#6B7280"
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setIsPasswordFocused(true)}
-              onBlur={() => setIsPasswordFocused(false)}
-              secureTextEntry
-            />
-          </View>
+          <Button 
+            title="Sign Up" 
+            onPress={handleSignup} 
+            isLoading={isLoading} 
+            style={styles.signupButton} 
+          />
 
-          <TouchableOpacity 
-            className="bg-[#A855F7] py-4 rounded-xl items-center mb-6 shadow-lg shadow-purple-500/50"
-            onPress={handleSignup}
-          >
-            <Text className="text-white font-bold text-lg">Sign Up</Text>
-          </TouchableOpacity>
-
-          <View className="flex-row justify-center">
-            <Text className="text-gray-400">Already have an account? </Text>
+          <View style={styles.footer}>
+            <Text style={theme.typography.caption}>Already have an account? </Text>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text className="text-[#22D3EE] font-bold">Log in</Text>
+              <Text style={[theme.typography.caption, { color: theme.colors.accentTeal, fontWeight: '700' }]}>Log in</Text>
             </TouchableOpacity>
           </View>
         </MotiView>
       </View>
-    </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xxl,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.xxl,
+  },
+  iconContainer: {
+    backgroundColor: `${theme.colors.accentTeal}15`,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.full,
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: `${theme.colors.accentTeal}30`,
+  },
+  form: {
+    width: '100%',
+  },
+  signupButton: {
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingBottom: theme.spacing.xxl,
+  },
+});
