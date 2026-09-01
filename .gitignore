@@ -4,21 +4,21 @@
 node_modules/
 
 # # Expo
-# .expo/
-# dist/
-# web-build/
+.expo/
+dist/
+web-build/
 
 # # Native
-# .kotlin/
-# *.orig.*
-# *.jks
-# *.p8
-# *.p12
-# *.key
-# *.mobileprovision
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
 # # Metro
-# .metro-health-check*
+.metro-health-check*
 
 # debug
 npm-debug.*
@@ -37,8 +37,8 @@ yarn-error.*
 .expo/
 
 # # typescript
-# *.tsbuildinfo
+*.tsbuildinfo
 
 # generated native folders
-# /ios
-# /android
+/ios
+/android

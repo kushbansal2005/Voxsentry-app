@@ -11,9 +11,9 @@ class CallDetectionPackage : ReactPackage {
 
     override fun createViewManagers(
         reactContext: ReactApplicationContext
-    ): MutableList<ViewManager<View, ReactShadowNode<*>>> = mutableListOf()
+    ): List<ViewManager<*, *>> = emptyList()
 
     override fun createNativeModules(
         reactContext: ReactApplicationContext
-    ): MutableList<NativeModule> = listOf(CallDetectionModule(reactContext)).toMutableList()
+    ): List<NativeModule> = listOf(CallDetectionModule(reactContext))
 }
