@@ -1,4 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeModules } from 'react-native';
+
+const { CallDetectionModule } = NativeModules;
 
 export type DetectionEvent = {
   id: string;
@@ -11,29 +13,51 @@ export type DetectionEvent = {
   profileChecked?: string;
 };
 
-const STORAGE_KEY = 'voxsentry_detection_history';
+type NativeCallRecord = {
+  id: string;
+  timestamp: number;
+  duration: number;
+  finalStatus: string;
+  maxConfidence: number;
+  callType: string;
+};
 
 export const getHistory = async (): Promise<DetectionEvent[]> => {
   try {
-    const data = await AsyncStorage.getItem(STORAGE_KEY);
-    if (data) {
-      return JSON.parse(data);
-    }
-    return [];
+    if (!CallDetectionModule) return [];
+    
+    const dataStr = await CallDetectionModule.getHistory();
+    const nativeRecords: NativeCallRecord[] = JSON.parse(dataStr);
+    
+    // Sort descending by timestamp
+    nativeRecords.sort((a, b) => b.timestamp - a.timestamp);
+
+    return nativeRecords.map(record => {
+      const isThreat = record.finalStatus === 'threat';
+      const date = new Date(record.timestamp);
+      
+      return {
+        id: record.id,
+        verdict: isThreat ? 'Threat Detected' : 'Safe',
+        isThreat,
+        confidence: `${(record.maxConfidence).toFixed(1)}%`, // Wait, earlier I logged it as raw val
+        timestamp: date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        context: record.callType === 'whatsapp' ? 'WhatsApp Call' : 'Phone Call',
+        method: 'Real-time TFLite Pipeline'
+      };
+    });
   } catch (e) {
-    console.error('Failed to load history', e);
+    console.error('Failed to load native history', e);
     return [];
   }
 };
 
-export const addHistoryEvent = async (event: Omit<DetectionEvent, 'id'>) => {
+export const clearHistory = async () => {
   try {
-    const current = await getHistory();
-    const newEvent = { ...event, id: Date.now().toString() };
-    const updated = [newEvent, ...current];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return updated;
+    if (CallDetectionModule) {
+      await CallDetectionModule.clearHistory();
+    }
   } catch (e) {
-    console.error('Failed to add history event', e);
+    console.error('Failed to clear native history', e);
   }
 };

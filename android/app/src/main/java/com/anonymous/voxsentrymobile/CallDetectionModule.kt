@@ -145,6 +145,27 @@ class CallDetectionModule(private val reactContext: ReactApplicationContext) : R
     }
 
     @ReactMethod
+    fun getHistory(promise: Promise) {
+        try {
+            val store = HistoryStore(reactContext)
+            promise.resolve(store.getHistory())
+        } catch (e: Exception) {
+            promise.reject("HISTORY_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun clearHistory(promise: Promise) {
+        try {
+            val store = HistoryStore(reactContext)
+            store.clearHistory()
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("HISTORY_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
     fun addListener(eventName: String) {
         // Required for RN built-in Event Emitter Calls.
     }

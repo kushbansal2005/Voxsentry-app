@@ -39,6 +39,11 @@ class ProtectionService : Service(), CallSessionManager.CallStateListener, Audio
     private var isCallCurrentlyActive = false
     private var isSpeakerOn = false
 
+    private lateinit var historyStore: HistoryStore
+    private var callStartTime: Long = 0
+    private var maxConfidence: Float = 0f
+    private var currentCallType: String = "native"
+
     enum class OverlayState {
         WAITING, ANALYZING, SAFE, THREAT
     }
@@ -63,6 +68,8 @@ class ProtectionService : Service(), CallSessionManager.CallStateListener, Audio
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+        historyStore = HistoryStore(this)
 
         inferenceEngine = InferenceEngine(this)
         inferenceEngine.setListener(this)
@@ -92,12 +99,33 @@ class ProtectionService : Service(), CallSessionManager.CallStateListener, Audio
     override fun onCallStateChanged(isActive: Boolean) {
         isCallCurrentlyActive = isActive
         if (isActive) {
+            callStartTime = System.currentTimeMillis()
+            maxConfidence = 0f
             showOverlay()
             checkSpeakerState()
         } else {
+            if (callStartTime > 0) {
+                val duration = System.currentTimeMillis() - callStartTime
+                val finalStatus = when (currentState) {
+                    OverlayState.THREAT -> "threat"
+                    OverlayState.SAFE -> "safe"
+                    else -> "unknown"
+                }
+                historyStore.addRecord(
+                    CallRecord(
+                        id = java.util.UUID.randomUUID().toString(),
+                        timestamp = callStartTime,
+                        duration = duration,
+                        finalStatus = finalStatus,
+                        maxConfidence = maxConfidence,
+                        callType = currentCallType
+                    )
+                )
+            }
             hideOverlay()
             audioCaptureManager.stopCapture()
             inferenceEngine.reset()
+            callStartTime = 0
         }
     }
 
@@ -129,6 +157,10 @@ class ProtectionService : Service(), CallSessionManager.CallStateListener, Audio
     }
 
     override fun onDetectionResult(isThreat: Boolean, confidence: Float) {
+        if (confidence > maxConfidence) {
+            maxConfidence = confidence
+        }
+
         val newState = if (isThreat) OverlayState.THREAT else OverlayState.SAFE
         updateOverlayState(newState)
         
@@ -216,8 +248,11 @@ class ProtectionService : Service(), CallSessionManager.CallStateListener, Audio
 
         overlayView = view
         try {
+            android.util.Log.d("VoxSentry", "Attempting to add overlay view to WindowManager...")
             windowManager.addView(overlayView, params)
+            android.util.Log.d("VoxSentry", "Successfully added overlay view.")
         } catch (e: Exception) {
+            android.util.Log.e("VoxSentry", "Failed to add overlay view", e)
             e.printStackTrace()
         }
 

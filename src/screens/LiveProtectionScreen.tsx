@@ -1,26 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Switch, DeviceEventEmitter, ScrollView } from 'react-native';
 import { MotiView } from 'moti';
-import { ShieldAlert, ShieldCheck, Info, Power, AlertTriangle, Smartphone, Bell, Battery } from 'lucide-react-native';
+import { ShieldAlert, ShieldCheck, Info, Power, AlertTriangle, Smartphone, Bell, Battery, Mic, Phone } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useProtection } from '../context/ProtectionContext';
 import { OverlayBridge } from '../lib/OverlayBridge';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Card } from '../components/Card';
-import { PermissionModal } from '../components/PermissionModal';
 import { theme } from '../constants/theme';
+import { 
+  checkAllPermissions, PermissionStatus, 
+  requestMicrophone, requestPhoneState, 
+  requestNotifications, requestOverlay, 
+  requestNotificationListener, requestBatteryExemption 
+} from '../lib/PermissionsManager';
 
 export default function LiveProtectionScreen() {
   const { isProtectionActive, setIsProtectionActive } = useProtection();
-  const [hasOverlayPermission, setHasOverlayPermission] = useState(false);
-  const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
-  const [hasBatteryExemption, setHasBatteryExemption] = useState(false);
-  const [isCheckingPermission, setIsCheckingPermission] = useState(false);
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [permissions, setPermissions] = useState<PermissionStatus | null>(null);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
+  const navigation = useNavigation();
+
+  useFocusEffect(
+    useCallback(() => {
+      checkPerms();
+    }, [])
+  );
 
   useEffect(() => {
-    checkPermissions();
-
     const subscription = DeviceEventEmitter.addListener('onDetectionUpdate', (event: any) => {
       if (event.event === 'onDetectionUpdate' && event.payload) {
         setLiveStatus(event.payload);
@@ -34,32 +41,18 @@ export default function LiveProtectionScreen() {
     };
   }, []);
 
-  const checkPermissions = async () => {
-    const overlay = await OverlayBridge.checkAndRequestOverlayPermission(); // This actually just checks it when we use it if we mock correctly, wait we need to check without requesting. 
-    // Actually the mock resolves to true. We should assume it works.
-    setHasOverlayPermission(overlay);
-    setHasNotificationPermission(await OverlayBridge.checkNotificationPermission());
-    setHasBatteryExemption(await OverlayBridge.checkBatteryOptimizationExemption());
+  const checkPerms = async () => {
+    const status = await checkAllPermissions();
+    setPermissions(status);
   };
 
-  const handleGrantOverlay = async () => {
-    setShowPermissionModal(false);
-    setIsCheckingPermission(true);
-    const granted = await OverlayBridge.checkAndRequestOverlayPermission();
-    setHasOverlayPermission(granted);
-    setIsCheckingPermission(false);
-  };
-
-  const handleGrantNotification = async () => {
-    await OverlayBridge.requestNotificationPermission();
-    // Re-check after returning
-    setTimeout(checkPermissions, 2000);
-  };
-
-  const handleGrantBattery = async () => {
-    await OverlayBridge.requestBatteryOptimizationExemption();
-    setTimeout(checkPermissions, 2000);
-  };
+  const allGranted = permissions && 
+    permissions.microphone && 
+    permissions.phoneState && 
+    permissions.notifications && 
+    permissions.overlay && 
+    permissions.notificationListener && 
+    permissions.battery;
 
   const handleToggleProtection = async () => {
     if (isProtectionActive) {
@@ -67,6 +60,10 @@ export default function LiveProtectionScreen() {
       setIsProtectionActive(false);
       setLiveStatus(null);
     } else {
+      if (!allGranted) {
+        // We gate starting protection on having all permissions
+        return;
+      }
       await OverlayBridge.startProtection();
       setIsProtectionActive(true);
     }
@@ -108,79 +105,52 @@ export default function LiveProtectionScreen() {
                     Status: {liveStatus}
                   </Text>
                 )}
+                {!allGranted && !isProtectionActive && (
+                  <Text style={{ marginTop: 4, color: theme.colors.dangerRed, fontWeight: '700', fontSize: 12 }}>
+                    Missing permissions
+                  </Text>
+                )}
               </View>
             </View>
             <Switch 
               value={isProtectionActive}
               onValueChange={handleToggleProtection}
+              disabled={!allGranted && !isProtectionActive}
               trackColor={{ false: theme.colors.textDisabled, true: theme.colors.accentTeal }}
               thumbColor="#FFFFFF"
             />
           </Card>
         </MotiView>
 
-        <View style={{ gap: theme.spacing.md }}>
-          {(!hasOverlayPermission || !hasNotificationPermission || !hasBatteryExemption) && (
+        {permissions && !allGranted && (
+          <View style={{ gap: theme.spacing.md }}>
             <Text style={[theme.typography.heading, { marginBottom: theme.spacing.xs }]}>Required Permissions</Text>
-          )}
 
-          {!hasOverlayPermission && (
-            <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-              <Card style={{ borderColor: theme.colors.dangerRed, borderWidth: 1, backgroundColor: `${theme.colors.dangerRed}05` }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: theme.spacing.md }}>
-                  <View style={{ width: 32, height: 32, borderRadius: theme.borderRadius.full, backgroundColor: `${theme.colors.dangerRed}20`, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.sm }}>
-                    <ShieldAlert color={theme.colors.dangerRed} size={16} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={theme.typography.body}>Display Over Apps</Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.dangerRed, marginTop: 2 }]}>Required for overlay alerts</Text>
-                  </View>
-                  <TouchableOpacity style={{ backgroundColor: theme.colors.dangerRed, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 6 }} onPress={() => setShowPermissionModal(true)} disabled={isCheckingPermission}>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Grant</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            </MotiView>
-          )}
+            {!permissions.microphone && (
+              <PermissionRow icon={<Mic color={theme.colors.dangerRed} size={16} />} title="Microphone" description="Required to analyze audio" action={async () => { await requestMicrophone(); checkPerms(); }} />
+            )}
+            
+            {!permissions.phoneState && (
+              <PermissionRow icon={<Phone color={theme.colors.dangerRed} size={16} />} title="Phone State" description="Required to detect active calls" action={async () => { await requestPhoneState(); checkPerms(); }} />
+            )}
 
-          {!hasNotificationPermission && (
-            <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-              <Card style={{ borderColor: theme.colors.dangerRed, borderWidth: 1, backgroundColor: `${theme.colors.dangerRed}05` }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: theme.spacing.md }}>
-                  <View style={{ width: 32, height: 32, borderRadius: theme.borderRadius.full, backgroundColor: `${theme.colors.dangerRed}20`, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.sm }}>
-                    <Bell color={theme.colors.dangerRed} size={16} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={theme.typography.body}>Notification Access</Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.dangerRed, marginTop: 2 }]}>Required to detect VoIP calls (WhatsApp)</Text>
-                  </View>
-                  <TouchableOpacity style={{ backgroundColor: theme.colors.dangerRed, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 6 }} onPress={handleGrantNotification}>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Grant</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            </MotiView>
-          )}
+            {!permissions.notifications && (
+              <PermissionRow icon={<Bell color={theme.colors.dangerRed} size={16} />} title="Notifications" description="Required for foreground service" action={async () => { await requestNotifications(); checkPerms(); }} />
+            )}
 
-          {!hasBatteryExemption && (
-            <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-              <Card style={{ borderColor: theme.colors.warningAmber, borderWidth: 1, backgroundColor: `${theme.colors.warningAmber}05` }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: theme.spacing.md }}>
-                  <View style={{ width: 32, height: 32, borderRadius: theme.borderRadius.full, backgroundColor: `${theme.colors.warningAmber}20`, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.sm }}>
-                    <Battery color={theme.colors.warningAmber} size={16} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={theme.typography.body}>Unrestricted Battery</Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.warningAmber, marginTop: 2 }]}>Prevents OS from killing protection</Text>
-                  </View>
-                  <TouchableOpacity style={{ backgroundColor: theme.colors.warningAmber, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 6 }} onPress={handleGrantBattery}>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Grant</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            </MotiView>
-          )}
-        </View>
+            {!permissions.overlay && (
+              <PermissionRow icon={<ShieldAlert color={theme.colors.dangerRed} size={16} />} title="Display Over Apps" description="Required for overlay alerts" action={async () => { await requestOverlay(); setTimeout(checkPerms, 2000); }} />
+            )}
+
+            {!permissions.notificationListener && (
+              <PermissionRow icon={<Bell color={theme.colors.dangerRed} size={16} />} title="Notification Access" description="Required for VoIP call detection" action={async () => { await requestNotificationListener(); setTimeout(checkPerms, 2000); }} />
+            )}
+
+            {!permissions.battery && (
+              <PermissionRow icon={<Battery color={theme.colors.warningAmber} size={16} />} color={theme.colors.warningAmber} title="Unrestricted Battery" description="Prevents OS from killing protection" action={async () => { await requestBatteryExemption(); setTimeout(checkPerms, 2000); }} />
+            )}
+          </View>
+        )}
 
         <View style={{ gap: theme.spacing.md, marginTop: theme.spacing.xl }}>
           <Card>
@@ -211,16 +181,28 @@ export default function LiveProtectionScreen() {
             </View>
           </Card>
         </View>
-
-        <PermissionModal
-          visible={showPermissionModal}
-          icon={<ShieldAlert color={theme.colors.accentTeal} size={32} />}
-          title="Allow display over other apps"
-          description="VoxSentry requires this permission to display real-time threat alerts on your screen during active calls. We do not track or record your screen contents."
-          onAllow={handleGrantOverlay}
-          onDeny={() => setShowPermissionModal(false)}
-        />
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+function PermissionRow({ icon, title, description, action, color = theme.colors.dangerRed }: { icon: React.ReactNode, title: string, description: string, action: () => void, color?: string }) {
+  return (
+    <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      <Card style={{ borderColor: color, borderWidth: 1, backgroundColor: `${color}05` }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 0 }}>
+          <View style={{ width: 32, height: 32, borderRadius: theme.borderRadius.full, backgroundColor: `${color}20`, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.sm }}>
+            {icon}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={theme.typography.body}>{title}</Text>
+            <Text style={[theme.typography.caption, { color: color, marginTop: 2 }]}>{description}</Text>
+          </View>
+          <TouchableOpacity style={{ backgroundColor: color, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 6 }} onPress={action}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Grant</Text>
+          </TouchableOpacity>
+        </View>
+      </Card>
+    </MotiView>
   );
 }
