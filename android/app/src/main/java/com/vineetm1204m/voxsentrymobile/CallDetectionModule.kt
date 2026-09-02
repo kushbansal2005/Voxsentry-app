@@ -1,4 +1,4 @@
-package com.anonymous.voxsentrymobile
+package com.vineetm1204m.voxsentrymobile
 
 import android.content.BroadcastReceiver
 import android.content.Context

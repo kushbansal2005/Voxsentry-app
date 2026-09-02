@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.voxsentrymobile'
+    namespace 'com.vineetm1204m.voxsentrymobile'
     defaultConfig {
-        applicationId 'com.anonymous.voxsentrymobile'
+        applicationId 'com.vineetm1204m.voxsentrymobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -129,9 +129,6 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
-    }
-    aaptOptions {
-        noCompress "tflite"
     }
 }
 
@@ -182,7 +179,4 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    // TensorFlow Lite dependencies
-    implementation 'org.tensorflow:tensorflow-lite:2.13.0'
 }

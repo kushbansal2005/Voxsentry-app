@@ -1,4 +1,4 @@
-package com.anonymous.voxsentrymobile
+package com.vineetm1204m.voxsentrymobile
 
 import android.app.Application
 import android.content.res.Configuration
