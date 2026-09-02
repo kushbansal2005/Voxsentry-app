@@ -3,15 +3,16 @@
     "name": "voxsentry-mobile",
     "slug": "voxsentry-mobile",
     "version": "1.0.0",
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "extra": {
       "eas": {
         "projectId": "cdc99865-9d43-4dcb-90a2-c2b545d4796d"
       }
+    },
+    "android": {
+      "package": "com.vineetm1204m.voxsentrymobile"
     }
   }
 }
